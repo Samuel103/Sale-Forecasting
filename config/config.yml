@@ -1,0 +1,28 @@
+model:
+  # Nombre d'arbres construits pendant l'entraînement.
+  n_estimators: 100
+  # Fonction à optimiser : ici, la régression avec erreur quadratique.
+  objective: regression
+  # Contribution de chaque nouvel arbre aux prédictions du modèle.
+  learning_rate: 0.1
+  # Profondeur maximale de chaque arbre, pour limiter sa complexité.
+  max_depth: 4
+  # Graine aléatoire pour rendre l'entraînement reproductible.
+  random_state: 42
+
+preprocessing:
+  # Jours calendaires à partir de la première date du DataFrame, incluse.
+  # null permet de conserver toutes les dates.
+  inference_days: 7
+  group_cols: [customer_id, type]
+  categorical_cols: [customer_id, type]
+  # L'ordre des colonnes doit être identique à l'entraînement et à l'inférence.
+  feature_cols: [customer_id, type, promotion, year, month, day, weekday]
+
+training:
+  data_path: data/train.csv
+  # Fichier d'export du modèle : chemin relatif à la racine du projet ou absolu.
+  model_export_path: training/model.pkl
+
+general:
+  mlflow_url: "http://127.0.0.1:5000"

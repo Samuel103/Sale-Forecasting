@@ -1,0 +1,480 @@
+{
+  "info": {
+    "name": "Sale Forecasting — API locale",
+    "description": "Démarrer FastAPI et MLflow, puis exécuter les dossiers dans l’ordre. POST /train entraîne réellement le modèle depuis les données configurées et attend sa fin. Utiliser un seul processus Uvicorn. Les exemples de prédiction restent dans le même jour pour respecter tout horizon positif. Les assertions de correspondance supposent de conserver les exemples fournis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1 — Disponibilité",
+      "item": [
+        {
+          "name": "Contrat OpenAPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/openapi.json",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "openapi.json"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Endpoints disponibles\", function () {",
+                  "    const paths = pm.response.json().paths;",
+                  "    pm.expect(paths[\"/train\"]).to.have.property(\"post\");",
+                  "    pm.expect(paths[\"/predict\"]).to.have.property(\"post\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 — Entraînement",
+      "item": [
+        {
+          "name": "Entraîner et charger le modèle",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/train",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "train"
+              ]
+            },
+            "description": "Aucun corps. Nécessite le CSV et MLflow définis dans config/config.yml. La réponse attend la fin du training. Augmenter ou désactiver le délai de requête dans Postman si nécessaire. Un entraînement déjà en cours renvoie 409 ; un échec renvoie 500."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Entraînement terminé\", function () {",
+                  "    pm.expect(pm.response.json().status).to.eql(\"completed\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 — Prédictions",
+      "item": [
+        {
+          "name": "Prédire une vente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "Nécessite un modèle chargé. Sans modèle, l’API renvoie 503 : exécuter /train.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"family\": \"GROCERY\",\n      \"onpromotion\": 0,\n      \"date\": \"2026-01-01\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Prévisions associées aux lignes reçues\", function () {",
+                  "    const rows = JSON.parse(pm.request.body.raw).rows;",
+                  "    const predictions = pm.response.json().predictions;",
+                  "    pm.expect(predictions).to.be.an(\"array\").with.lengthOf(rows.length);",
+                  "    predictions.forEach(function (prediction, index) {",
+                  "        pm.expect(prediction).to.have.all.keys(\"id\", \"customer_id\", \"product\", \"date\", \"sales\");",
+                  "        pm.expect(prediction.id).to.eql(rows[index].id);",
+                  "        pm.expect(prediction.customer_id).to.eql(rows[index].store_nbr);",
+                  "        pm.expect(prediction.product).to.eql(rows[index].family);",
+                  "        pm.expect(prediction.date).to.eql(rows[index].date);",
+                  "        pm.expect(prediction.sales).to.be.a(\"number\");",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Prédire plusieurs ventes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"family\": \"GROCERY\",\n      \"onpromotion\": 0,\n      \"date\": \"2026-01-01\"\n    },\n    {\n      \"id\": 11,\n      \"store_nbr\": 2,\n      \"family\": \"BEVERAGES\",\n      \"onpromotion\": 3,\n      \"date\": \"2026-01-01\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Prévisions associées aux lignes reçues\", function () {",
+                  "    const rows = JSON.parse(pm.request.body.raw).rows;",
+                  "    const predictions = pm.response.json().predictions;",
+                  "    pm.expect(predictions).to.be.an(\"array\").with.lengthOf(rows.length);",
+                  "    predictions.forEach(function (prediction, index) {",
+                  "        pm.expect(prediction).to.have.all.keys(\"id\", \"customer_id\", \"product\", \"date\", \"sales\");",
+                  "        pm.expect(prediction.id).to.eql(rows[index].id);",
+                  "        pm.expect(prediction.customer_id).to.eql(rows[index].store_nbr);",
+                  "        pm.expect(prediction.product).to.eql(rows[index].family);",
+                  "        pm.expect(prediction.date).to.eql(rows[index].date);",
+                  "        pm.expect(prediction.sales).to.be.a(\"number\");",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 — Validation (erreurs attendues)",
+      "item": [
+        {
+          "name": "Liste vide",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422 : requête rejetée\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Détails de validation présents\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Date invalide",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"family\": \"GROCERY\",\n      \"onpromotion\": 0,\n      \"date\": \"date-invalide\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422 : requête rejetée\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Détails de validation présents\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Promotion négative",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"family\": \"GROCERY\",\n      \"onpromotion\": -1,\n      \"date\": \"2026-01-01\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422 : requête rejetée\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Détails de validation présents\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Identifiants dupliqués",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"family\": \"GROCERY\",\n      \"onpromotion\": 0,\n      \"date\": \"2026-01-01\"\n    },\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"family\": \"GROCERY\",\n      \"onpromotion\": 0,\n      \"date\": \"2026-01-01\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422 : requête rejetée\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Détails de validation présents\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Champ requis manquant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"onpromotion\": 0,\n      \"date\": \"2026-01-01\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422 : requête rejetée\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Détails de validation présents\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Champ inconnu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/predict",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "predict"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rows\": [\n    {\n      \"id\": 10,\n      \"store_nbr\": 1,\n      \"family\": \"GROCERY\",\n      \"onpromotion\": 0,\n      \"date\": \"2026-01-01\",\n      \"sales\": 100\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422 : requête rejetée\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Détails de validation présents\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

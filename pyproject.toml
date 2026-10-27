@@ -1,0 +1,51 @@
+[project]
+name = "sale-forecasting"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Samuel103", email = "samuel.gascon@hotmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "eli5>=0.16.0",
+    "fastexcel>=0.21.0",
+    "lightgbm>=4.7.0",
+    "matplotlib>=3.10.0",
+    "mlflow>=3.17.2",
+    "numpy>=2.0.0",
+    "polars>=2.0.0",
+    "pyyaml>=6.0.2",
+    "scikit-learn>=1.4.0",
+    "uvicorn>=0.30.0",
+]
+
+
+[project.scripts]
+sale-forecasting = "sale_forecasting:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.0.0",
+    "ruff>=0.9.0",
+]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "TID252"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sale_forecasting"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
